@@ -427,6 +427,7 @@
         running: false,
         endTime: null,
         remainingMs: null,
+        durationMs: null,
         cycleCount: 0,
       },
       day: todayStr(),
@@ -791,12 +792,37 @@
     document.getElementById("keepScreenOnToggle").checked = s.keepScreenOn;
   }
   function bindSettings() {
-    document.getElementById("workMin").addEventListener("change", (e) => { state.settings.workMin = clampInt(e.target.value, 5, 90, 25); saveState(); });
-    document.getElementById("shortBreakMin").addEventListener("change", (e) => { state.settings.shortBreakMin = clampInt(e.target.value, 1, 30, 5); saveState(); });
-    document.getElementById("longBreakMin").addEventListener("change", (e) => { state.settings.longBreakMin = clampInt(e.target.value, 5, 60, 15); saveState(); });
-    document.getElementById("cyclesInput").addEventListener("change", (e) => { state.settings.cyclesBeforeLongBreak = clampInt(e.target.value, 2, 8, 4); saveState(); });
-    document.getElementById("checkinToggle").addEventListener("change", (e) => { state.settings.checkinEnabled = e.target.checked; saveState(); });
-    document.getElementById("checkinInterval").addEventListener("change", (e) => { state.settings.checkinIntervalMin = clampInt(e.target.value, 3, 60, 10); saveState(); });
+    const bindDuration = (id, key, min, max, fallback) => {
+      document.getElementById(id).addEventListener("change", (e) => {
+        state.settings[key] = clampInt(e.target.value, min, max, fallback);
+        e.target.value = state.settings[key];
+        saveState();
+        applyDurationChange();
+      });
+    };
+    bindDuration("workMin", "workMin", 5, 90, 25);
+    bindDuration("shortBreakMin", "shortBreakMin", 1, 30, 5);
+    bindDuration("longBreakMin", "longBreakMin", 5, 60, 15);
+    document.getElementById("cyclesInput").addEventListener("change", (e) => {
+      state.settings.cyclesBeforeLongBreak = clampInt(e.target.value, 2, 8, 4);
+      e.target.value = state.settings.cyclesBeforeLongBreak;
+      saveState();
+    });
+    document.getElementById("checkinToggle").addEventListener("change", (e) => {
+      state.settings.checkinEnabled = e.target.checked;
+      if (state.timer.running && state.timer.phase === "work") {
+        nextCheckinAt = e.target.checked ? Date.now() + state.settings.checkinIntervalMin * 60000 : null;
+      }
+      saveState();
+    });
+    document.getElementById("checkinInterval").addEventListener("change", (e) => {
+      state.settings.checkinIntervalMin = clampInt(e.target.value, 3, 60, 10);
+      e.target.value = state.settings.checkinIntervalMin;
+      if (state.timer.running && state.timer.phase === "work" && state.settings.checkinEnabled) {
+        nextCheckinAt = Date.now() + state.settings.checkinIntervalMin * 60000;
+      }
+      saveState();
+    });
     document.getElementById("soundToggle").addEventListener("change", (e) => { state.settings.soundEnabled = e.target.checked; saveState(); });
     document.getElementById("keepScreenOnToggle").addEventListener("change", (e) => {
       state.settings.keepScreenOn = e.target.checked;
@@ -804,6 +830,15 @@
       if (e.target.checked && state.timer.running) acquireWakeLock();
       else releaseWakeLock();
     });
+  }
+  // Le nuove durate valgono subito a timer fermo; una sessione in corso o in
+  // pausa mantiene il suo conto alla rovescia e le applica dalla prossima fase.
+  function applyDurationChange() {
+    if (!state.timer.running && state.timer.remainingMs == null) {
+      render();
+    } else {
+      toast("Durata salvata: vale dalla prossima sessione.");
+    }
   }
   function clampInt(v, min, max, fallback) {
     const n = parseInt(v, 10);
@@ -843,7 +878,9 @@
 
   function startTimer() {
     if (state.timer.phase === "idle") state.timer.phase = "work";
-    const remaining = state.timer.remainingMs != null ? state.timer.remainingMs : phaseDurationMs(state.timer.phase);
+    const resuming = state.timer.remainingMs != null;
+    const remaining = resuming ? state.timer.remainingMs : phaseDurationMs(state.timer.phase);
+    if (!resuming) state.timer.durationMs = phaseDurationMs(state.timer.phase);
     state.timer.endTime = Date.now() + remaining;
     state.timer.running = true;
     state.timer.remainingMs = null;
@@ -868,7 +905,7 @@
   }
 
   function resetTimer() {
-    state.timer = { phase: "idle", running: false, endTime: null, remainingMs: null, cycleCount: state.timer.cycleCount };
+    state.timer = { phase: "idle", running: false, endTime: null, remainingMs: null, durationMs: null, cycleCount: state.timer.cycleCount };
     nextCheckinAt = null;
     saveState();
     updateButtons();
@@ -883,9 +920,10 @@
   function finishPhase(skipped) {
     const wasWork = state.timer.phase === "work";
     if (wasWork && !skipped) {
+      const focusMin = Math.round((state.timer.durationMs || phaseDurationMs("work")) / 60000);
       state.stats.pomodori += 1;
-      state.stats.minutiFocus += state.settings.workMin;
-      addLog(`Pomodoro completato (${state.settings.workMin} min)`);
+      state.stats.minutiFocus += focusMin;
+      addLog(`Pomodoro completato (${focusMin} min)`);
       chime("session-end");
       notify("Focus Assistant", "Sessione completata! Tempo di pausa.");
       state.timer.cycleCount += 1;
@@ -902,7 +940,7 @@
     } else {
       nextPhase = "work";
     }
-    state.timer = { phase: nextPhase, running: false, endTime: null, remainingMs: null, cycleCount: state.timer.cycleCount };
+    state.timer = { phase: nextPhase, running: false, endTime: null, remainingMs: null, durationMs: null, cycleCount: state.timer.cycleCount };
     nextCheckinAt = null;
     saveState();
     render();
@@ -943,7 +981,9 @@
     const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
     const ss = String(totalSec % 60).padStart(2, "0");
     document.getElementById("timeDisplay").textContent = `${mm}:${ss}`;
-    const duration = phaseDurationMs(state.timer.phase);
+    // la fase in corso mantiene la durata con cui è partita, anche se nel
+    // frattempo le impostazioni sono cambiate: l'anello resta coerente
+    const duration = state.timer.durationMs || phaseDurationMs(state.timer.phase);
     const frac = duration > 0 ? Math.max(0, Math.min(1, remainingMs / duration)) : 0;
     ringEl.style.strokeDashoffset = `${RING_CIRC * (1 - frac)}`;
   }
