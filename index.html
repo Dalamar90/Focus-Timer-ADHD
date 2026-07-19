@@ -140,6 +140,28 @@
   .stat-value { font-size: 1.5rem; font-weight: 700; }
   .stat-label { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
 
+  /* Weekly history */
+  .history-chart {
+    display: flex; align-items: flex-end; gap: 8px;
+    height: 130px; padding-top: 18px;
+  }
+  .history-col {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: flex-end; height: 100%; gap: 4px; min-width: 0;
+  }
+  .history-value { font-size: 0.7rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .history-bar {
+    width: 100%; max-width: 42px;
+    background: var(--accent); border-radius: 6px 6px 0 0;
+    min-height: 2px;
+    transition: height 0.3s ease;
+  }
+  .history-col.today .history-bar { background: var(--accent-2); }
+  .history-day { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; }
+  .history-col.today .history-day { color: var(--text); font-weight: 700; }
+  .history-distr { font-size: 0.68rem; color: var(--bad); min-height: 1em; }
+  .history-summary { margin-top: 12px; font-size: 0.82rem; color: var(--text-dim); text-align: center; }
+
   /* Settings */
   .settings-grid { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; align-items: center; }
   .settings-grid label { font-size: 0.9rem; color: var(--text-dim); }
@@ -257,6 +279,13 @@
     <div style="margin-top:14px; text-align:center;">
       <button class="btn-bad btn-sm" id="logDistractionBtn">✋ Mi sono distratto/a</button>
     </div>
+  </div>
+
+  <!-- Weekly history -->
+  <div class="card">
+    <h2>Ultimi 7 giorni</h2>
+    <div class="history-chart" id="historyChart" role="img" aria-label="Grafico dei minuti di focus degli ultimi 7 giorni"></div>
+    <div class="history-summary" id="historySummary"></div>
   </div>
 
   <!-- Log -->
@@ -431,6 +460,7 @@
       },
       day: todayStr(),
       stats: { pomodori: 0, minutiFocus: 0, distrazioni: 0 },
+      history: [],
       log: [],
     };
   }
@@ -445,9 +475,16 @@
     s.settings = { ...defaultState().settings, ...s.settings };
     if (!s.periodics) s.periodics = defaultPeriodics();
     if (!s.dayOverrides) s.dayOverrides = {};
+    if (!s.history) s.history = [];
     s.reminders = (s.reminders || []).map(r => ({ workdaysOnly: false, ...r }));
     // reset daily stats/log on a new day, keep settings/tasks/reminders
     if (s.day !== todayStr()) {
+      // il giorno appena chiuso finisce nello storico (solo se c'è stata attività)
+      const st = s.stats || {};
+      if ((st.pomodori || 0) > 0 || (st.minutiFocus || 0) > 0 || (st.distrazioni || 0) > 0) {
+        s.history.push({ day: s.day, pomodori: st.pomodori || 0, minutiFocus: st.minutiFocus || 0, distrazioni: st.distrazioni || 0 });
+      }
+      s.history = s.history.slice(-60);
       s.day = todayStr();
       s.stats = { pomodori: 0, minutiFocus: 0, distrazioni: 0 };
       s.log = [];
@@ -461,6 +498,7 @@
   function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
   let state = loadState();
+  saveState(); // persiste subito eventuali migrazioni/rollover fatti in loadState
 
   // ---------- Audio ----------
   let audioCtx = null;
@@ -964,6 +1002,46 @@
     document.getElementById("statPomodori").textContent = state.stats.pomodori;
     document.getElementById("statMinuti").textContent = state.stats.minutiFocus;
     document.getElementById("statDistrazioni").textContent = state.stats.distrazioni;
+    renderHistory();
+  }
+
+  // ---------- Storico settimanale ----------
+  const dayInitials = ["D", "L", "M", "M", "G", "V", "S"];
+  function statsForDay(ymd) {
+    if (ymd === state.day) return state.stats;
+    const entry = state.history.find(h => h.day === ymd);
+    return entry || { pomodori: 0, minutiFocus: 0, distrazioni: 0 };
+  }
+  function renderHistory() {
+    const chart = document.getElementById("historyChart");
+    chart.innerHTML = "";
+    const today = new Date();
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+      days.push(d);
+    }
+    const data = days.map(d => ({ date: d, ymd: dateToYMD(d), s: statsForDay(dateToYMD(d)) }));
+    const maxMin = Math.max(25, ...data.map(x => x.s.minutiFocus));
+    let totMin = 0, totPom = 0, totDistr = 0;
+    for (const x of data) {
+      totMin += x.s.minutiFocus; totPom += x.s.pomodori; totDistr += x.s.distrazioni;
+      const col = document.createElement("div");
+      col.className = "history-col" + (x.ymd === state.day ? " today" : "");
+      const pct = Math.round((x.s.minutiFocus / maxMin) * 100);
+      col.innerHTML = `
+        <span class="history-value">${x.s.minutiFocus > 0 ? x.s.minutiFocus + "m" : ""}</span>
+        <div class="history-bar" style="height:${pct}%"></div>
+        <span class="history-day">${dayInitials[x.date.getDay()]}</span>
+        <span class="history-distr">${x.s.distrazioni > 0 ? "✗" + x.s.distrazioni : ""}</span>
+      `;
+      col.title = `${x.ymd}: ${x.s.pomodori} pomodori, ${x.s.minutiFocus} min di focus, ${x.s.distrazioni} distrazioni`;
+      chart.appendChild(col);
+    }
+    document.getElementById("historySummary").textContent =
+      totMin > 0 || totDistr > 0
+        ? `Settimana: ${totPom} pomodori · ${totMin} minuti di focus · ${totDistr} distrazioni`
+        : "Ancora nessuna attività registrata questa settimana.";
   }
 
   // ---------- Check-in ----------
