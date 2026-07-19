@@ -6,98 +6,171 @@
 <title>Focus Assistant</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
-<meta name="theme-color" content="#14161c">
+<meta name="theme-color" content="#0f1118">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Focus Assistant">
 <style>
   :root {
-    --bg: #14161c;
-    --panel: #1d2029;
-    --panel-2: #262b38;
-    --text: #eef0f5;
-    --text-dim: #9aa0b4;
-    --accent: #7c9eff;
+    --bg: #0f1118;
+    --bg-grad: #161a26;
+    --panel: #1b1e28;
+    --panel-2: #272c3a;
+    --panel-hover: #313749;
+    --text: #f2f4fa;
+    --text-dim: #a8afc6;
+    --accent: #6d8bff;
+    --accent-strong: #5573ff;
+    --accent-glow: rgba(109, 139, 255, 0.5);
     --accent-2: #ffb454;
-    --good: #63d29a;
+    --good: #57cf95;
+    --good-glow: rgba(87, 207, 149, 0.45);
     --bad: #ff7a7a;
-    --ring-bg: #2a2f3d;
-    --radius: 16px;
+    --ring-bg: #2b3142;
+    --radius: 18px;
+    --radius-lg: 26px;
+    --shadow-hero: 0 10px 44px rgba(0, 0, 0, 0.4);
+    /* scala z-index semantica */
+    --z-sticky: 20;
+    --z-modal: 50;
+    --z-toast: 60;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0;
     background: var(--bg);
+    background-image: radial-gradient(120% 80% at 50% -10%, var(--bg-grad) 0%, var(--bg) 60%);
+    background-attachment: fixed;
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.5;
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
   .wrap {
     max-width: 720px;
     margin: 0 auto;
-    padding: 24px 16px 80px;
+    padding: 28px 16px 80px;
   }
   h1 {
-    font-size: 1.4rem;
+    font-size: 1.6rem;
+    font-weight: 750;
+    letter-spacing: -0.02em;
     text-align: center;
-    margin: 0 0 4px;
+    text-wrap: balance;
+    margin: 0 0 6px;
   }
   .subtitle {
     text-align: center;
     color: var(--text-dim);
-    font-size: 0.85rem;
-    margin-bottom: 24px;
+    font-size: 0.95rem;
+    text-wrap: balance;
+    margin-bottom: 26px;
   }
   .card {
     background: var(--panel);
+    border: 1px solid rgba(255, 255, 255, 0.04);
     border-radius: var(--radius);
     padding: 20px;
     margin-bottom: 16px;
   }
+  /* le sezioni di configurazione si fanno da parte rispetto al focus attivo */
+  .card--config {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
   .card h2 {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
+    font-weight: 650;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     color: var(--text-dim);
     margin: 0 0 14px;
   }
 
-  /* Timer */
-  .timer-card { text-align: center; }
-  .ring-box { position: relative; width: 220px; height: 220px; margin: 0 auto 16px; }
-  svg { transform: rotate(-90deg); }
-  .ring-bg { fill: none; stroke: var(--ring-bg); stroke-width: 12; }
-  .ring-progress { fill: none; stroke: var(--accent); stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset 0.3s linear, stroke 0.3s; }
+  /* Timer — l'hero della pagina, trattato in modo distinto dalle altre card */
+  .timer-card {
+    text-align: center;
+    padding: 28px 20px 24px;
+    border-radius: var(--radius-lg);
+    background:
+      radial-gradient(130% 90% at 50% 0%, rgba(109, 139, 255, 0.1) 0%, rgba(109, 139, 255, 0) 55%),
+      linear-gradient(180deg, #202534 0%, var(--panel) 70%);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: var(--shadow-hero);
+    transition: box-shadow 0.4s ease;
+  }
+  .timer-card.is-running { box-shadow: var(--shadow-hero), 0 0 0 1px var(--accent-glow); }
+  .timer-card.is-running.is-break { box-shadow: var(--shadow-hero), 0 0 0 1px var(--good-glow); }
+  .ring-box { position: relative; width: 236px; height: 236px; margin: 0 auto 18px; }
+  .ring-box svg { transform: rotate(-90deg); width: 100%; height: 100%; overflow: visible; }
+  .ring-bg { fill: none; stroke: var(--ring-bg); stroke-width: 13; }
+  .ring-progress {
+    fill: none; stroke: var(--accent); stroke-width: 13; stroke-linecap: round;
+    transition: stroke-dashoffset 0.3s linear, stroke 0.4s ease, filter 0.4s ease;
+  }
   .ring-progress.break { stroke: var(--good); }
+  .timer-card.is-running .ring-progress { filter: drop-shadow(0 0 7px var(--accent-glow)); }
+  .timer-card.is-running .ring-progress.break { filter: drop-shadow(0 0 7px var(--good-glow)); }
   .ring-label {
     position: absolute; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
   }
-  .ring-time { font-size: 2.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .ring-phase { font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
-  .current-task { color: var(--text-dim); font-size: 0.9rem; min-height: 1.2em; margin-bottom: 14px; }
+  .ring-time { font-size: 3rem; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .ring-phase {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.8rem; font-weight: 650; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.1em; margin-top: 8px;
+  }
+  /* pallino di fase: distingue focus/pausa anche senza affidarsi al solo colore del testo */
+  .ring-phase::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text-dim); transition: background 0.4s ease;
+  }
+  .timer-card.is-running .ring-phase::before { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+  .timer-card.is-running.is-break .ring-phase::before { background: var(--good); box-shadow: 0 0 8px var(--good-glow); }
+  @keyframes ringPulse {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.035); }
+    100% { transform: scale(1); }
+  }
+  .ring-box.celebrate { animation: ringPulse 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+  .current-task {
+    color: var(--text); font-size: 0.95rem; min-height: 1.3em; margin-bottom: 16px;
+  }
+  .current-task:empty { margin-bottom: 4px; }
 
   .btn-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
   button {
     font: inherit;
     border: none;
-    border-radius: 10px;
-    padding: 10px 18px;
-    min-height: 44px;
+    border-radius: 12px;
+    padding: 11px 18px;
+    min-height: 46px;
     cursor: pointer;
-    font-weight: 600;
-    font-size: 0.9rem;
-    transition: transform 0.1s, opacity 0.1s;
+    font-weight: 650;
+    font-size: 0.95rem;
+    transition: transform 0.12s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, background 0.2s ease, opacity 0.15s;
   }
   button:active { transform: scale(0.96); }
-  .btn-primary { background: var(--accent); color: #0d1017; }
+  .btn-primary {
+    background: var(--accent); color: #0b1020;
+    box-shadow: 0 4px 16px -4px var(--accent-glow);
+  }
+  @media (hover: hover) {
+    .btn-primary:hover { background: var(--accent-strong); box-shadow: 0 6px 22px -4px var(--accent-glow); transform: translateY(-1px); }
+    .btn-secondary:hover, .btn-ghost:hover { background: var(--panel-hover); }
+  }
   .btn-secondary { background: var(--panel-2); color: var(--text); }
-  .btn-good { background: var(--good); color: #0d1017; }
+  .btn-good { background: var(--good); color: #062015; }
   .btn-bad { background: var(--bad); color: #2a0d0d; }
   .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--panel-2); }
-  .btn-sm { padding: 6px 12px; font-size: 0.8rem; min-height: 36px; }
+  .btn-sm { padding: 7px 13px; font-size: 0.85rem; min-height: 38px; }
   .btn-icon { padding: 6px; min-width: 40px; min-height: 40px; }
+  /* "Avvia": è la CTA principale, deve leggersi come tale */
+  #startBtn { padding-left: 26px; padding-right: 26px; }
 
   :focus-visible {
     outline: 3px solid var(--accent-2);
@@ -124,21 +197,27 @@
   /* Tasks */
   .task-list { display: flex; flex-direction: column; gap: 8px; }
   .task-row { display: flex; align-items: center; gap: 8px; }
-  .task-row input[type=text] {
-    flex: 1; background: var(--panel-2); border: none; border-radius: 8px;
+  .task-row input[type=text] { flex: 1; padding: 12px 13px; }
+  .task-row input[type=radio] { accent-color: var(--accent); width: 20px; height: 20px; flex: none; }
+  select, input[type=number], input[type=time], input[type=text] {
+    background: var(--panel-2); border: none; border-radius: 10px;
     padding: 10px 12px; color: var(--text); font: inherit;
   }
-  .task-row input[type=radio] { accent-color: var(--accent); width: 18px; height: 18px; }
-  select, input[type=number], input[type=time] {
-    background: var(--panel-2); border: none; border-radius: 8px;
-    padding: 8px 10px; color: var(--text); font: inherit;
-  }
+  ::placeholder { color: #969db3; opacity: 1; }
 
   /* Stats */
   .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .stat { background: var(--panel-2); border-radius: 12px; padding: 12px; text-align: center; }
-  .stat-value { font-size: 1.5rem; font-weight: 700; }
-  .stat-label { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
+  .stat { background: var(--panel-2); border-radius: 14px; padding: 14px 10px; text-align: center; }
+  .stat-value { font-size: 1.9rem; font-weight: 750; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .stat:first-child .stat-value { color: var(--accent); }
+  .stat-label { font-size: 0.82rem; color: var(--text-dim); margin-top: 4px; text-wrap: balance; }
+  /* piccolo salto quando una statistica si aggiorna: feedback sul traguardo */
+  @keyframes statBump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.18); }
+    100% { transform: scale(1); }
+  }
+  .stat-value.bump { animation: statBump 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
 
   /* Settings */
   .settings-grid { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; align-items: center; }
@@ -146,15 +225,15 @@
   .toggle-row { display: flex; align-items: center; justify-content: space-between; }
 
   /* Reminders */
-  .reminder-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .reminder-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
   .reminder-row input[type=text] { flex: 1; }
 
   /* Log */
-  .log-list { list-style: none; margin: 0; padding: 0; max-height: 160px; overflow-y: auto; font-size: 0.85rem; }
-  .log-list li { padding: 6px 0; border-bottom: 1px solid var(--panel-2); color: var(--text-dim); }
+  .log-list { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow-y: auto; font-size: 0.92rem; }
+  .log-list li { padding: 7px 0; border-bottom: 1px solid var(--panel-2); color: var(--text-dim); }
   .log-list li span.time { color: var(--text); margin-right: 8px; font-variant-numeric: tabular-nums; }
 
-  details summary { cursor: pointer; color: var(--text-dim); font-size: 0.85rem; margin-bottom: 8px; }
+  details summary { cursor: pointer; color: var(--text-dim); font-size: 0.92rem; font-weight: 600; margin-bottom: 8px; }
 
   /* Modal */
   .modal-overlay {
@@ -169,39 +248,48 @@
   .modal h3 { margin: 0 0 8px; }
   .modal p { color: var(--text-dim); margin: 0 0 18px; }
 
-  .toast-stack { position: fixed; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 8px; z-index: 60; }
+  .toast-stack { position: fixed; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 8px; z-index: var(--z-toast); }
   .toast {
-    background: var(--panel-2); border-left: 3px solid var(--accent);
-    border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; max-width: 280px;
-    animation: fadein 0.2s ease;
+    background: var(--panel-2); border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px; padding: 11px 15px; font-size: 0.9rem; max-width: 300px;
+    box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+    animation: fadein 0.24s cubic-bezier(0.22, 1, 0.36, 1);
   }
-  @keyframes fadein { from { opacity: 0; transform: translateY(-6px);} to { opacity: 1; transform: translateY(0);} }
+  @keyframes fadein { from { opacity: 0; transform: translateY(-8px);} to { opacity: 1; transform: translateY(0);} }
 
   .notif-banner {
-    background: var(--panel-2); border-radius: 10px; padding: 10px 14px;
-    font-size: 0.85rem; color: var(--text-dim); display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    background: var(--panel-2); border-radius: 12px; padding: 11px 15px;
+    font-size: 0.9rem; color: var(--text-dim); display: flex; justify-content: space-between; align-items: center; gap: 10px;
     margin-bottom: 16px;
   }
 
+  /* Badge giorno: lo stato feriale/festivo è portato da pallino + testo, non da una banda laterale */
   .day-badge {
-    background: var(--panel-2); border-radius: 10px; padding: 10px 14px;
-    font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 10px;
-    margin-bottom: 16px; border-left: 3px solid var(--accent);
+    background: var(--panel-2); border-radius: 12px; padding: 11px 15px;
+    font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    margin-bottom: 16px;
   }
-  .day-badge.festivo { border-left-color: var(--accent-2); }
+  .day-badge #dayBadgeText { display: inline-flex; align-items: center; gap: 9px; }
+  .day-badge #dayBadgeText::before {
+    content: ""; width: 9px; height: 9px; border-radius: 50%; flex: none;
+    background: var(--accent); box-shadow: 0 0 8px var(--accent-glow);
+  }
+  .day-badge.festivo #dayBadgeText::before { background: var(--accent-2); box-shadow: 0 0 8px rgba(255, 180, 84, 0.5); }
 
   .reminder-row { flex-wrap: wrap; }
   .reminder-row .workdays-label {
-    display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--text-dim);
+    display: flex; align-items: center; gap: 5px; font-size: 0.82rem; color: var(--text-dim);
     white-space: nowrap;
   }
   .periodic-row {
-    display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;
   }
   .periodic-row input[type=text] { flex: 1; min-width: 140px; }
-  .periodic-row .interval-group { display: flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--text-dim); }
-  .periodic-row .interval-group input { width: 60px; }
-  .periodic-row .workdays-label { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--text-dim); white-space: nowrap; }
+  .periodic-row .interval-group { display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--text-dim); }
+  .periodic-row .interval-group input { width: 64px; }
+  .periodic-row .workdays-label { display: flex; align-items: center; gap: 5px; font-size: 0.82rem; color: var(--text-dim); white-space: nowrap; }
+  .reminder-row input[type=checkbox], .periodic-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+  .settings-grid input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); justify-self: end; }
 </style>
 </head>
 <body>
@@ -260,7 +348,7 @@
   </div>
 
   <!-- Log -->
-  <div class="card">
+  <div class="card card--config">
     <details>
       <summary>Registro di oggi</summary>
       <ul class="log-list" id="logList"></ul>
@@ -268,13 +356,13 @@
   </div>
 
   <!-- Periodic reminders -->
-  <div class="card">
+  <div class="card card--config">
     <h2>Promemoria periodici</h2>
     <div id="periodicList"></div>
   </div>
 
   <!-- Reminders -->
-  <div class="card">
+  <div class="card card--config">
     <h2>Promemoria fissi</h2>
     <div id="reminderList"></div>
     <div class="btn-row" style="justify-content:flex-start; margin-top:6px;">
@@ -284,7 +372,7 @@
   </div>
 
   <!-- Settings -->
-  <div class="card">
+  <div class="card card--config">
     <details>
       <summary>Impostazioni timer</summary>
       <div class="settings-grid">
@@ -944,6 +1032,7 @@
     nextCheckinAt = null;
     saveState();
     render();
+    if (wasWork && !skipped) celebratePomodoro();
     releaseWakeLock();
   }
 
@@ -958,6 +1047,27 @@
       pauseBtn.style.display = "none";
       startBtn.textContent = state.timer.remainingMs != null ? "▶ Riprendi" : "▶ Avvia";
     }
+    // stato visivo dell'hero: bagliore anello e pallino di fase seguono il timer
+    const card = document.querySelector(".timer-card");
+    if (card) {
+      card.classList.toggle("is-running", state.timer.running);
+      const onBreak = state.timer.phase === "short_break" || state.timer.phase === "long_break";
+      card.classList.toggle("is-break", onBreak);
+    }
+  }
+
+  // piccola gratificazione quando si chiude un pomodoro (rispetta prefers-reduced-motion via CSS)
+  function pulse(el, cls, ms) {
+    if (!el) return;
+    el.classList.remove(cls);
+    void el.offsetWidth; // forza il restart dell'animazione
+    el.classList.add(cls);
+    setTimeout(() => el.classList.remove(cls), ms);
+  }
+  function celebratePomodoro() {
+    pulse(document.querySelector(".ring-box"), "celebrate", 700);
+    pulse(document.getElementById("statPomodori"), "bump", 500);
+    pulse(document.getElementById("statMinuti"), "bump", 500);
   }
 
   function tick() {
