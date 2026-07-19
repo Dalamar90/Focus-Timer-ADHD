@@ -82,13 +82,14 @@
     border: 1px solid rgba(255, 255, 255, 0.06);
   }
   .card h2 {
-    font-size: 0.9rem;
-    font-weight: 650;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-dim);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text);
     margin: 0 0 14px;
   }
+  /* i titoli delle sezioni di configurazione restano più discreti */
+  .card--config h2 { font-size: 1rem; font-weight: 650; color: var(--text-dim); }
 
   /* Timer — l'hero della pagina, trattato in modo distinto dalle altre card */
   .timer-card {
@@ -96,8 +97,8 @@
     padding: 28px 20px 24px;
     border-radius: var(--radius-lg);
     background:
-      radial-gradient(130% 90% at 50% 0%, rgba(109, 139, 255, 0.1) 0%, rgba(109, 139, 255, 0) 55%),
-      linear-gradient(180deg, #202534 0%, var(--panel) 70%);
+      radial-gradient(130% 90% at 50% 0%, rgba(109, 139, 255, 0.16) 0%, rgba(109, 139, 255, 0) 58%),
+      linear-gradient(180deg, #212738 0%, var(--panel) 72%);
     border: 1px solid rgba(255, 255, 255, 0.07);
     box-shadow: var(--shadow-hero);
     transition: box-shadow 0.4s ease;
@@ -169,8 +170,10 @@
   .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--panel-2); }
   .btn-sm { padding: 7px 13px; font-size: 0.85rem; min-height: 38px; }
   .btn-icon { padding: 6px; min-width: 40px; min-height: 40px; }
-  /* "Avvia": è la CTA principale, deve leggersi come tale */
-  #startBtn { padding-left: 26px; padding-right: 26px; }
+  /* Controllo principale del timer (Avvia / Pausa): è la CTA dominante */
+  .btn-row--primary { margin-bottom: 12px; }
+  .btn-row--primary button { font-size: 1.05rem; min-height: 54px; padding: 15px 44px; min-width: 210px; }
+  .btn-row--secondary { gap: 8px; }
 
   :focus-visible {
     outline: 3px solid var(--accent-2);
@@ -320,11 +323,13 @@
       </div>
     </div>
     <div class="current-task" id="currentTaskDisplay"></div>
-    <div class="btn-row">
+    <div class="btn-row btn-row--primary">
       <button class="btn-primary" id="startBtn">▶ Avvia</button>
       <button class="btn-secondary" id="pauseBtn" style="display:none;">⏸ Pausa</button>
-      <button class="btn-secondary" id="skipBtn">⏭ Salta</button>
-      <button class="btn-ghost" id="resetBtn">↺ Reset</button>
+    </div>
+    <div class="btn-row btn-row--secondary">
+      <button class="btn-ghost btn-sm" id="skipBtn">⏭ Salta</button>
+      <button class="btn-ghost btn-sm" id="resetBtn">↺ Reset</button>
     </div>
   </div>
 

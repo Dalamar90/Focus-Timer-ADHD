@@ -32,7 +32,7 @@ Un'unica famiglia (system-ui / SF / Segoe). Base **17px** per leggibilità (esig
 
 - Timer `.ring-time`: 3rem / 750, tabular-nums — l'elemento più grande della pagina.
 - H1: 1.6rem / 750, `text-wrap: balance`.
-- Titoli card `h2`: 0.9rem, uppercase, tracking 0.06em, `--text-dim`.
+- Titoli card `h2`: sentence-case, 1.1rem / 700, `--text` (niente maiuscolo tracciato "eyebrow"). Nelle sezioni di configurazione (`.card--config h2`) più discreti: 1rem / 650, `--text-dim`.
 - Statistiche: valore 1.9rem / 750 (il primo in `--accent`), label 0.82rem.
 - Corpo/label: 0.9–0.95rem.
 
@@ -49,6 +49,7 @@ Il timer (`.timer-card`) è trattato come hero distinto: raggio maggiore, gradie
 
 - **Anello timer**: `stroke` 13px, `stroke-linecap: round`. In esecuzione riceve un `drop-shadow` che fa da bagliore (blu in focus, verde in pausa). Pallino di fase nell'etichetta come indicatore non-cromatico.
 - **Bottoni**: raggio 12px, min-height 46px (touch). `.btn-primary` = accento con ombra soffusa e lift in hover. Feedback `active: scale(0.96)`.
+- **Controlli del timer**: il controllo principale (Avvia idle / Pausa in esecuzione) è la CTA dominante su riga propria (`.btn-row--primary`, min-height 54px); Salta e Reset sono ghost piccoli sotto (`.btn-row--secondary`). La gerarchia "cosa premo ora" è immediata.
 - **Badge giorno / toast**: superficie piena con bordo sottile e pallino di stato — nessuna banda laterale colorata.
 - **Modali**: overlay scuro, pannello `--panel`, CTA in accento.
 
