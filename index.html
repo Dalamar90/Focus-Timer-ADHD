@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Focus Assistant</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="theme-color" content="#14161c">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Focus Assistant">
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1d2029;
+    --panel-2: #262b38;
+    --text: #eef0f5;
+    --text-dim: #9aa0b4;
+    --accent: #7c9eff;
+    --accent-2: #ffb454;
+    --good: #63d29a;
+    --bad: #ff7a7a;
+    --ring-bg: #2a2f3d;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 16px 80px;
+  }
+  h1 {
+    font-size: 1.4rem;
+    text-align: center;
+    margin: 0 0 4px;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--panel);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin: 0 0 14px;
+  }
+
+  /* Timer */
+  .timer-card { text-align: center; }
+  .ring-box { position: relative; width: 220px; height: 220px; margin: 0 auto 16px; }
+  svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: var(--ring-bg); stroke-width: 12; }
+  .ring-progress { fill: none; stroke: var(--accent); stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset 0.3s linear, stroke 0.3s; }
+  .ring-progress.break { stroke: var(--good); }
+  .ring-label {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .ring-time { font-size: 2.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ring-phase { font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+  .current-task { color: var(--text-dim); font-size: 0.9rem; min-height: 1.2em; margin-bottom: 14px; }
+
+  .btn-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  button {
+    font: inherit;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    min-height: 44px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: transform 0.1s, opacity 0.1s;
+  }
+  button:active { transform: scale(0.96); }
+  .btn-primary { background: var(--accent); color: #0d1017; }
+  .btn-secondary { background: var(--panel-2); color: var(--text); }
+  .btn-good { background: var(--good); color: #0d1017; }
+  .btn-bad { background: var(--bad); color: #2a0d0d; }
+  .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--panel-2); }
+  .btn-sm { padding: 6px 12px; font-size: 0.8rem; min-height: 36px; }
+  .btn-icon { padding: 6px; min-width: 40px; min-height: 40px; }
+
+  :focus-visible {
+    outline: 3px solid var(--accent-2);
+    outline-offset: 2px;
+  }
+  input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent-2);
+    outline-offset: 1px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+
+  /* Tasks */
+  .task-list { display: flex; flex-direction: column; gap: 8px; }
+  .task-row { display: flex; align-items: center; gap: 8px; }
+  .task-row input[type=text] {
+    flex: 1; background: var(--panel-2); border: none; border-radius: 8px;
+    padding: 10px 12px; color: var(--text); font: inherit;
+  }
+  .task-row input[type=radio] { accent-color: var(--accent); width: 18px; height: 18px; }
+  select, input[type=number], input[type=time] {
+    background: var(--panel-2); border: none; border-radius: 8px;
+    padding: 8px 10px; color: var(--text); font: inherit;
+  }
+
+  /* Stats */
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat { background: var(--panel-2); border-radius: 12px; padding: 12px; text-align: center; }
+  .stat-value { font-size: 1.5rem; font-weight: 700; }
+  .stat-label { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
+
+  /* Settings */
+  .settings-grid { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; align-items: center; }
+  .settings-grid label { font-size: 0.9rem; color: var(--text-dim); }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+
+  /* Reminders */
+  .reminder-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .reminder-row input[type=text] { flex: 1; }
+
+  /* Log */
+  .log-list { list-style: none; margin: 0; padding: 0; max-height: 160px; overflow-y: auto; font-size: 0.85rem; }
+  .log-list li { padding: 6px 0; border-bottom: 1px solid var(--panel-2); color: var(--text-dim); }
+  .log-list li span.time { color: var(--text); margin-right: 8px; font-variant-numeric: tabular-nums; }
+
+  details summary { cursor: pointer; color: var(--text-dim); font-size: 0.85rem; margin-bottom: 8px; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--panel); border-radius: var(--radius);
+    padding: 24px; max-width: 360px; width: 100%; text-align: center;
+  }
+  .modal h3 { margin: 0 0 8px; }
+  .modal p { color: var(--text-dim); margin: 0 0 18px; }
+
+  .toast-stack { position: fixed; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 8px; z-index: 60; }
+  .toast {
+    background: var(--panel-2); border-left: 3px solid var(--accent);
+    border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; max-width: 280px;
+    animation: fadein 0.2s ease;
+  }
+  @keyframes fadein { from { opacity: 0; transform: translateY(-6px);} to { opacity: 1; transform: translateY(0);} }
+
+  .notif-banner {
+    background: var(--panel-2); border-radius: 10px; padding: 10px 14px;
+    font-size: 0.85rem; color: var(--text-dim); display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .day-badge {
+    background: var(--panel-2); border-radius: 10px; padding: 10px 14px;
+    font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    margin-bottom: 16px; border-left: 3px solid var(--accent);
+  }
+  .day-badge.festivo { border-left-color: var(--accent-2); }
+
+  .reminder-row { flex-wrap: wrap; }
+  .reminder-row .workdays-label {
+    display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .periodic-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;
+  }
+  .periodic-row input[type=text] { flex: 1; min-width: 140px; }
+  .periodic-row .interval-group { display: flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--text-dim); }
+  .periodic-row .interval-group input { width: 60px; }
+  .periodic-row .workdays-label { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--text-dim); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎯 Focus Assistant</h1>
+  <div class="subtitle">Tienimi aperto in una scheda: è qui che vivono i tuoi promemoria.</div>
+
+  <div id="notifBanner" class="notif-banner" style="display:none;">
+    <span>Attiva le notifiche del browser per non perderti i promemoria.</span>
+    <button class="btn-sm btn-primary" id="enableNotifBtn">Attiva</button>
+  </div>
+
+  <div id="dayBadge" class="day-badge">
+    <span id="dayBadgeText">📅 Oggi</span>
+    <button class="btn-ghost btn-sm" id="dayOverrideBtn">Cambia</button>
+  </div>
+
+  <!-- Timer -->
+  <div class="card timer-card">
+    <div class="ring-box">
+      <svg width="220" height="220" viewBox="0 0 220 220">
+        <circle class="ring-bg" cx="110" cy="110" r="98"></circle>
+        <circle id="ringProgress" class="ring-progress" cx="110" cy="110" r="98"></circle>
+      </svg>
+      <div class="ring-label">
+        <div class="ring-time" id="timeDisplay" aria-hidden="true">25:00</div>
+        <div class="ring-phase" id="phaseDisplay" aria-live="polite">Pronto</div>
+      </div>
+    </div>
+    <div class="current-task" id="currentTaskDisplay"></div>
+    <div class="btn-row">
+      <button class="btn-primary" id="startBtn">▶ Avvia</button>
+      <button class="btn-secondary" id="pauseBtn" style="display:none;">⏸ Pausa</button>
+      <button class="btn-secondary" id="skipBtn">⏭ Salta</button>
+      <button class="btn-ghost" id="resetBtn">↺ Reset</button>
+    </div>
+  </div>
+
+  <!-- Tasks -->
+  <div class="card">
+    <h2>Priorità di oggi (max 3)</h2>
+    <div class="task-list" id="taskList"></div>
+  </div>
+
+  <!-- Stats -->
+  <div class="card">
+    <h2>Oggi</h2>
+    <div class="stats-grid">
+      <div class="stat"><div class="stat-value" id="statPomodori">0</div><div class="stat-label">Pomodori completati</div></div>
+      <div class="stat"><div class="stat-value" id="statMinuti">0</div><div class="stat-label">Minuti di focus</div></div>
+      <div class="stat"><div class="stat-value" id="statDistrazioni">0</div><div class="stat-label">Distrazioni loggate</div></div>
+    </div>
+    <div style="margin-top:14px; text-align:center;">
+      <button class="btn-bad btn-sm" id="logDistractionBtn">✋ Mi sono distratto/a</button>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <details>
+      <summary>Registro di oggi</summary>
+      <ul class="log-list" id="logList"></ul>
+    </details>
+  </div>
+
+  <!-- Periodic reminders -->
+  <div class="card">
+    <h2>Promemoria periodici</h2>
+    <div id="periodicList"></div>
+  </div>
+
+  <!-- Reminders -->
+  <div class="card">
+    <h2>Promemoria fissi</h2>
+    <div id="reminderList"></div>
+    <div class="btn-row" style="justify-content:flex-start; margin-top:6px;">
+      <button class="btn-secondary btn-sm" id="addReminderBtn">+ Aggiungi promemoria</button>
+      <button class="btn-secondary btn-sm" id="exportIcsBtn">📆 Esporta nel calendario (.ics)</button>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="card">
+    <details>
+      <summary>Impostazioni timer</summary>
+      <div class="settings-grid">
+        <label for="workMin">Durata lavoro (min)</label>
+        <input type="number" id="workMin" min="5" max="90" step="1">
+
+        <label for="shortBreakMin">Durata pausa breve (min)</label>
+        <input type="number" id="shortBreakMin" min="1" max="30" step="1">
+
+        <label for="longBreakMin">Durata pausa lunga (min)</label>
+        <input type="number" id="longBreakMin" min="5" max="60" step="1">
+
+        <label for="cyclesInput">Cicli prima della pausa lunga</label>
+        <input type="number" id="cyclesInput" min="2" max="8" step="1">
+
+        <label for="checkinToggle">Check-in "stai lavorando?" durante il focus</label>
+        <input type="checkbox" id="checkinToggle">
+
+        <label for="checkinInterval">Ogni quanti minuti fare check-in</label>
+        <input type="number" id="checkinInterval" min="3" max="60" step="1">
+
+        <label for="soundToggle">Suono avvisi</label>
+        <input type="checkbox" id="soundToggle">
+
+        <label for="keepScreenOnToggle">Mantieni lo schermo acceso durante il focus</label>
+        <input type="checkbox" id="keepScreenOnToggle">
+      </div>
+      <p style="font-size:0.75rem; color:var(--text-dim); margin: 10px 0 0;">Sullo smartphone, con lo schermo bloccato i timer del browser vengono messi in pausa dal sistema: questa opzione lo previene durante le sessioni di focus (consuma più batteria).</p>
+    </details>
+  </div>
+</div>
+
+<!-- Check-in modal -->
+<div class="modal-overlay" id="checkinModal" role="alertdialog" aria-modal="true" aria-labelledby="checkinModalTitle" aria-describedby="checkinTaskText">
+  <div class="modal">
+    <h3 id="checkinModalTitle">👀 Stai lavorando?</h3>
+    <p id="checkinTaskText">Come sta andando il focus?</p>
+    <div class="btn-row">
+      <button class="btn-good" id="checkinYesBtn">Sì, ci sono</button>
+      <button class="btn-bad" id="checkinNoBtn">Mi sono distratto/a</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reminder modal -->
+<div class="modal-overlay" id="reminderModal" role="alertdialog" aria-modal="true" aria-labelledby="reminderModalTitle" aria-describedby="reminderModalText">
+  <div class="modal">
+    <h3 id="reminderModalTitle">Promemoria</h3>
+    <p id="reminderModalText"></p>
+    <div class="btn-row">
+      <button class="btn-primary" id="reminderOkBtn">Ok, grazie</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack" aria-live="polite" role="status"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const STORAGE_KEY = "focusAppState_v1";
+  const todayStr = () => new Date().toISOString().slice(0, 10);
+
+  const defaultReminders = () => ([
+    { id: "med-am", time: "09:10", label: "💊 Prendi i farmaci", workdaysOnly: false, lastFired: null },
+    { id: "med-pm", time: "14:10", label: "💊 Prendi i farmaci", workdaysOnly: false, lastFired: null },
+    { id: "stacca-1", time: "13:45", label: "🕐 Tra poco stacchi", workdaysOnly: true, lastFired: null },
+    { id: "stacca-2", time: "17:45", label: "🕐 Tra poco stacchi", workdaysOnly: true, lastFired: null },
+  ]);
+
+  const defaultPeriodics = () => ([
+    { id: "water", label: "💧 Bevi un po' d'acqua", intervalMin: 45, enabled: true, workdaysOnly: false, nextFireAt: null },
+    { id: "legs", label: "🚶 Sgranchisciti le gambe", intervalMin: 60, enabled: true, workdaysOnly: false, nextFireAt: null },
+    { id: "eyes2020", label: "👀 Regola 20-20-20: guarda lontano 20 secondi", intervalMin: 20, enabled: true, workdaysOnly: false, nextFireAt: null },
+  ]);
+
+  // ---------- Giorno lavorativo / festivo ----------
+  function dateToYMD(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  function easterDate(year) {
+    // Algoritmo di Gauss (calendario gregoriano)
+    const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+    const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31);
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(year, month - 1, day);
+  }
+  function easterMondayYMD(year) {
+    const easter = easterDate(year);
+    const monday = new Date(easter.getFullYear(), easter.getMonth(), easter.getDate() + 1);
+    return dateToYMD(monday);
+  }
+  function italianHolidaysForYear(year) {
+    return new Set([
+      `${year}-01-01`, `${year}-01-06`, easterMondayYMD(year),
+      `${year}-04-25`, `${year}-05-01`, `${year}-06-02`,
+      `${year}-08-15`, `${year}-11-01`, `${year}-12-08`,
+      `${year}-12-25`, `${year}-12-26`,
+    ]);
+  }
+  function isItalianHoliday(date) {
+    return italianHolidaysForYear(date.getFullYear()).has(dateToYMD(date));
+  }
+  function isWorkdayAuto(date) {
+    const dow = date.getDay();
+    if (dow === 0 || dow === 6) return false;
+    if (isItalianHoliday(date)) return false;
+    return true;
+  }
+  function isWorkdayToday() {
+    const key = todayStr();
+    if (state.dayOverrides && state.dayOverrides[key]) return state.dayOverrides[key] === "work";
+    return isWorkdayAuto(new Date());
+  }
+
+  function defaultState() {
+    return {
+      settings: {
+        workMin: 25,
+        shortBreakMin: 5,
+        longBreakMin: 15,
+        cyclesBeforeLongBreak: 4,
+        checkinEnabled: true,
+        checkinIntervalMin: 10,
+        soundEnabled: true,
+        keepScreenOn: true,
+      },
+      reminders: defaultReminders(),
+      periodics: defaultPeriodics(),
+      dayOverrides: {},
+      tasks: ["", "", ""],
+      activeTaskIndex: null,
+      timer: {
+        phase: "idle", // idle | work | short_break | long_break
+        running: false,
+        endTime: null,
+        remainingMs: null,
+        cycleCount: 0,
+      },
+      day: todayStr(),
+      stats: { pomodori: 0, minutiFocus: 0, distrazioni: 0 },
+      log: [],
+    };
+  }
+
+  function loadState() {
+    let s;
+    try {
+      s = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    } catch (e) { s = null; }
+    if (!s) return defaultState();
+    // retrocompatibilità con stati salvati prima dell'introduzione di periodici/dayOverrides/nuove impostazioni
+    s.settings = { ...defaultState().settings, ...s.settings };
+    if (!s.periodics) s.periodics = defaultPeriodics();
+    if (!s.dayOverrides) s.dayOverrides = {};
+    s.reminders = (s.reminders || []).map(r => ({ workdaysOnly: false, ...r }));
+    // reset daily stats/log on a new day, keep settings/tasks/reminders
+    if (s.day !== todayStr()) {
+      s.day = todayStr();
+      s.stats = { pomodori: 0, minutiFocus: 0, distrazioni: 0 };
+      s.log = [];
+      s.dayOverrides = {};
+      (s.reminders || []).forEach(r => r.lastFired = null);
+      (s.periodics || []).forEach(p => p.nextFireAt = null);
+    }
+    return s;
+  }
+
+  function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+  let state = loadState();
+
+  // ---------- Audio ----------
+  let audioCtx = null;
+  function beep(freq = 880, duration = 180, type = "sine") {
+    if (!state.settings.soundEnabled) return;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration / 1000);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration / 1000);
+    } catch (e) { /* ignore */ }
+  }
+  function chime(kind) {
+    if (kind === "session-end") { beep(660, 150); setTimeout(() => beep(880, 220), 160); }
+    else if (kind === "checkin") { beep(520, 150); }
+    else if (kind === "reminder") { beep(440, 150); setTimeout(() => beep(440, 150), 220); setTimeout(() => beep(440, 200), 440); }
+  }
+
+  // ---------- Notifications / toasts ----------
+  function notify(title, body, opts = {}) {
+    if ("Notification" in window && Notification.permission === "granted") {
+      try {
+        new Notification(title, {
+          body,
+          tag: opts.tag,
+          requireInteraction: !!opts.persistent,
+          vibrate: opts.persistent ? [200, 100, 200] : undefined,
+          icon: "icons/icon-192.png",
+        });
+      } catch (e) { /* ignore */ }
+    }
+    if (navigator.vibrate && opts.persistent) {
+      try { navigator.vibrate([200, 100, 200]); } catch (e) { /* ignore */ }
+    }
+    toast(`${title} — ${body}`);
+  }
+  function toast(msg) {
+    const stack = document.getElementById("toastStack");
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.textContent = msg;
+    stack.appendChild(el);
+    setTimeout(() => el.remove(), 6000);
+  }
+
+  const notifBanner = document.getElementById("notifBanner");
+  function refreshNotifBanner() {
+    if ("Notification" in window && Notification.permission === "default") {
+      notifBanner.style.display = "flex";
+    } else {
+      notifBanner.style.display = "none";
+    }
+  }
+  document.getElementById("enableNotifBtn").addEventListener("click", () => {
+    if ("Notification" in window) Notification.requestPermission().then(refreshNotifBanner);
+  });
+  refreshNotifBanner();
+
+  // ---------- Log ----------
+  function addLog(text) {
+    const time = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    state.log.unshift({ time, text });
+    state.log = state.log.slice(0, 100);
+    saveState();
+    renderLog();
+  }
+  function renderLog() {
+    const ul = document.getElementById("logList");
+    ul.innerHTML = "";
+    if (state.log.length === 0) {
+      ul.innerHTML = '<li>Nessuna attività ancora oggi.</li>';
+      return;
+    }
+    for (const entry of state.log) {
+      const li = document.createElement("li");
+      li.innerHTML = `<span class="time">${entry.time}</span>${entry.text}`;
+      ul.appendChild(li);
+    }
+  }
+
+  // ---------- Tasks ----------
+  function renderTasks() {
+    const list = document.getElementById("taskList");
+    list.innerHTML = "";
+    state.tasks.forEach((val, i) => {
+      const row = document.createElement("div");
+      row.className = "task-row";
+      row.innerHTML = `
+        <input type="radio" name="activeTask" value="${i}" ${state.activeTaskIndex === i ? "checked" : ""} aria-label="Seleziona come priorità attiva: priorità ${i + 1}">
+        <input type="text" placeholder="Priorità ${i + 1}" value="${val.replace(/"/g, "&quot;")}" aria-label="Priorità ${i + 1}">
+      `;
+      row.querySelector('input[type=text]').addEventListener("input", (e) => {
+        state.tasks[i] = e.target.value;
+        saveState();
+        updateCurrentTaskDisplay();
+      });
+      row.querySelector('input[type=radio]').addEventListener("change", () => {
+        state.activeTaskIndex = i;
+        saveState();
+        updateCurrentTaskDisplay();
+      });
+      list.appendChild(row);
+    });
+  }
+  function updateCurrentTaskDisplay() {
+    const el = document.getElementById("currentTaskDisplay");
+    const idx = state.activeTaskIndex;
+    if (idx !== null && state.tasks[idx]) el.textContent = `Su cui stai lavorando: ${state.tasks[idx]}`;
+    else el.textContent = "";
+  }
+
+  // ---------- Reminders ----------
+  function renderReminders() {
+    const container = document.getElementById("reminderList");
+    container.innerHTML = "";
+    state.reminders.forEach((r, i) => {
+      const row = document.createElement("div");
+      row.className = "reminder-row";
+      row.innerHTML = `
+        <input type="time" value="${r.time}" aria-label="Orario promemoria">
+        <input type="text" value="${r.label.replace(/"/g, "&quot;")}" aria-label="Testo del promemoria">
+        <label class="workdays-label"><input type="checkbox" ${r.workdaysOnly ? "checked" : ""}> solo feriali</label>
+        <button class="btn-ghost btn-icon" data-i="${i}" aria-label="Rimuovi promemoria ${r.label.replace(/"/g, "&quot;")}">✕</button>
+      `;
+      row.querySelector('input[type=time]').addEventListener("change", (e) => {
+        state.reminders[i].time = e.target.value;
+        saveState();
+      });
+      row.querySelector('input[type=text]').addEventListener("input", (e) => {
+        state.reminders[i].label = e.target.value;
+        saveState();
+      });
+      row.querySelector('input[type=checkbox]').addEventListener("change", (e) => {
+        state.reminders[i].workdaysOnly = e.target.checked;
+        saveState();
+      });
+      row.querySelector('button').addEventListener("click", () => {
+        state.reminders.splice(i, 1);
+        saveState();
+        renderReminders();
+      });
+      container.appendChild(row);
+    });
+  }
+  document.getElementById("addReminderBtn").addEventListener("click", () => {
+    state.reminders.push({ id: "custom-" + Date.now(), time: "12:00", label: "Nuovo promemoria", workdaysOnly: false, lastFired: null });
+    saveState();
+    renderReminders();
+  });
+
+  function checkReminders() {
+    const now = new Date();
+    const today = todayStr();
+    const workday = isWorkdayToday();
+    for (const r of state.reminders) {
+      if (r.lastFired === today) continue;
+      const [hh, mm] = r.time.split(":").map(Number);
+      const scheduled = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, 0);
+      // confronto "orario superato" invece che uguaglianza esatta al minuto: resiste al
+      // throttling del browser quando la scheda è in background o lo schermo è bloccato
+      if (now >= scheduled) {
+        r.lastFired = today;
+        saveState();
+        if (!r.workdaysOnly || workday) fireReminder(r);
+      }
+    }
+  }
+  function fireReminder(r) {
+    chime("reminder");
+    notify("Focus Assistant", r.label, { persistent: true, tag: `reminder-${r.id}` });
+    addLog(`Promemoria: ${r.label}`);
+    document.getElementById("reminderModalTitle").textContent = r.label;
+    document.getElementById("reminderModalText").textContent = `Sono le ${r.time}.`;
+    document.getElementById("reminderModal").classList.add("show");
+    document.getElementById("reminderOkBtn").focus();
+  }
+  document.getElementById("reminderOkBtn").addEventListener("click", () => {
+    document.getElementById("reminderModal").classList.remove("show");
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.getElementById("reminderModal").classList.contains("show")) {
+      document.getElementById("reminderModal").classList.remove("show");
+    }
+  });
+
+  // ---------- Periodic reminders ----------
+  function renderPeriodics() {
+    const container = document.getElementById("periodicList");
+    container.innerHTML = "";
+    state.periodics.forEach((p, i) => {
+      const row = document.createElement("div");
+      row.className = "periodic-row";
+      row.innerHTML = `
+        <input type="checkbox" ${p.enabled ? "checked" : ""} aria-label="Attiva o disattiva: ${p.label.replace(/"/g, "&quot;")}">
+        <input type="text" value="${p.label.replace(/"/g, "&quot;")}" aria-label="Testo del promemoria">
+        <span class="interval-group">ogni <input type="number" min="3" max="240" value="${p.intervalMin}" aria-label="Intervallo in minuti"> min</span>
+        <label class="workdays-label"><input type="checkbox" class="workdays-toggle" ${p.workdaysOnly ? "checked" : ""}> solo feriali</label>
+      `;
+      const checkboxes = row.querySelectorAll('input[type=checkbox]');
+      checkboxes[0].addEventListener("change", (e) => {
+        state.periodics[i].enabled = e.target.checked;
+        state.periodics[i].nextFireAt = null;
+        saveState();
+      });
+      row.querySelector('input[type=text]').addEventListener("input", (e) => {
+        state.periodics[i].label = e.target.value;
+        saveState();
+      });
+      row.querySelector('input[type=number]').addEventListener("change", (e) => {
+        state.periodics[i].intervalMin = clampInt(e.target.value, 3, 240, p.intervalMin);
+        state.periodics[i].nextFireAt = null;
+        saveState();
+      });
+      row.querySelector('.workdays-toggle').addEventListener("change", (e) => {
+        state.periodics[i].workdaysOnly = e.target.checked;
+        saveState();
+      });
+      container.appendChild(row);
+    });
+  }
+
+  function checkPeriodics() {
+    const now = Date.now();
+    const workday = isWorkdayToday();
+    let changed = false;
+    for (const p of state.periodics) {
+      if (!p.enabled) continue;
+      if (p.nextFireAt == null) {
+        p.nextFireAt = now + p.intervalMin * 60000;
+        changed = true;
+        continue;
+      }
+      if (now >= p.nextFireAt) {
+        p.nextFireAt = now + p.intervalMin * 60000;
+        changed = true;
+        if (!p.workdaysOnly || workday) {
+          chime("reminder");
+          notify("Focus Assistant", p.label, { persistent: true, tag: `periodic-${p.id}` });
+          addLog(`Promemoria: ${p.label}`);
+        }
+      }
+    }
+    if (changed) saveState();
+  }
+
+  // ---------- Giorno lavorativo badge ----------
+  function renderDayBadge() {
+    const isWork = isWorkdayToday();
+    document.getElementById("dayBadgeText").textContent = isWork ? "📅 Oggi: giorno lavorativo" : "📅 Oggi: festivo / weekend";
+    document.getElementById("dayBadge").classList.toggle("festivo", !isWork);
+  }
+  document.getElementById("dayOverrideBtn").addEventListener("click", () => {
+    const key = todayStr();
+    const currentlyWork = isWorkdayToday();
+    state.dayOverrides[key] = currentlyWork ? "off" : "work";
+    saveState();
+    renderDayBadge();
+  });
+
+  // ---------- Export calendario (.ics) ----------
+  function icsEscape(text) {
+    return String(text).replace(/\\/g, "\\\\").replace(/,/g, "\\,").replace(/;/g, "\\;");
+  }
+  function buildIcs() {
+    const now = new Date();
+    const dtstamp = now.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    const lines = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Focus Assistant//IT",
+      "CALSCALE:GREGORIAN",
+    ];
+    state.reminders.forEach((r, i) => {
+      const [hh, mm] = r.time.split(":");
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(hh, 10), parseInt(mm, 10), 0);
+      // se l'orario di oggi è già passato, la prima occorrenza parte da domani
+      if (start.getTime() < now.getTime()) start.setDate(start.getDate() + 1);
+      const dtStr = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}00`;
+      const rrule = r.workdaysOnly ? "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" : "FREQ=DAILY";
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:focus-assistant-${r.id || i}@local`,
+        `DTSTAMP:${dtstamp}`,
+        `DTSTART:${dtStr(start)}`,
+        `DURATION:PT5M`,
+        `RRULE:${rrule}`,
+        `SUMMARY:${icsEscape(r.label)}`,
+        "BEGIN:VALARM",
+        "ACTION:DISPLAY",
+        "TRIGGER:PT0M",
+        `DESCRIPTION:${icsEscape(r.label)}`,
+        "END:VALARM",
+        "END:VEVENT"
+      );
+    });
+    lines.push("END:VCALENDAR");
+    return lines.join("\r\n");
+  }
+  document.getElementById("exportIcsBtn").addEventListener("click", () => {
+    const blob = new Blob([buildIcs()], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "focus-assistant-promemoria.ics";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast("File .ics scaricato: importalo nel calendario del telefono.");
+  });
+
+  // ---------- Settings ----------
+  function renderSettings() {
+    const s = state.settings;
+    document.getElementById("workMin").value = s.workMin;
+    document.getElementById("shortBreakMin").value = s.shortBreakMin;
+    document.getElementById("longBreakMin").value = s.longBreakMin;
+    document.getElementById("cyclesInput").value = s.cyclesBeforeLongBreak;
+    document.getElementById("checkinToggle").checked = s.checkinEnabled;
+    document.getElementById("checkinInterval").value = s.checkinIntervalMin;
+    document.getElementById("soundToggle").checked = s.soundEnabled;
+    document.getElementById("keepScreenOnToggle").checked = s.keepScreenOn;
+  }
+  function bindSettings() {
+    document.getElementById("workMin").addEventListener("change", (e) => { state.settings.workMin = clampInt(e.target.value, 5, 90, 25); saveState(); });
+    document.getElementById("shortBreakMin").addEventListener("change", (e) => { state.settings.shortBreakMin = clampInt(e.target.value, 1, 30, 5); saveState(); });
+    document.getElementById("longBreakMin").addEventListener("change", (e) => { state.settings.longBreakMin = clampInt(e.target.value, 5, 60, 15); saveState(); });
+    document.getElementById("cyclesInput").addEventListener("change", (e) => { state.settings.cyclesBeforeLongBreak = clampInt(e.target.value, 2, 8, 4); saveState(); });
+    document.getElementById("checkinToggle").addEventListener("change", (e) => { state.settings.checkinEnabled = e.target.checked; saveState(); });
+    document.getElementById("checkinInterval").addEventListener("change", (e) => { state.settings.checkinIntervalMin = clampInt(e.target.value, 3, 60, 10); saveState(); });
+    document.getElementById("soundToggle").addEventListener("change", (e) => { state.settings.soundEnabled = e.target.checked; saveState(); });
+    document.getElementById("keepScreenOnToggle").addEventListener("change", (e) => {
+      state.settings.keepScreenOn = e.target.checked;
+      saveState();
+      if (e.target.checked && state.timer.running) acquireWakeLock();
+      else releaseWakeLock();
+    });
+  }
+  function clampInt(v, min, max, fallback) {
+    const n = parseInt(v, 10);
+    if (isNaN(n)) return fallback;
+    return Math.min(max, Math.max(min, n));
+  }
+
+  // ---------- Timer ----------
+  const phaseLabels = { idle: "Pronto", work: "Focus", short_break: "Pausa", long_break: "Pausa lunga" };
+  const RING_CIRC = 2 * Math.PI * 98;
+  const ringEl = document.getElementById("ringProgress");
+  ringEl.style.strokeDasharray = `${RING_CIRC}`;
+
+  function phaseDurationMs(phase) {
+    const s = state.settings;
+    if (phase === "work") return s.workMin * 60000;
+    if (phase === "short_break") return s.shortBreakMin * 60000;
+    if (phase === "long_break") return s.longBreakMin * 60000;
+    return s.workMin * 60000;
+  }
+
+  let nextCheckinAt = null;
+
+  // ---------- Wake Lock (mantieni lo schermo acceso durante il focus) ----------
+  let wakeLock = null;
+  async function acquireWakeLock() {
+    if (!state.settings.keepScreenOn) return;
+    if (!("wakeLock" in navigator)) return;
+    try {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => { wakeLock = null; });
+    } catch (e) { /* negato, batteria scarica, ecc: si ignora e si continua senza */ }
+  }
+  function releaseWakeLock() {
+    if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  }
+
+  function startTimer() {
+    if (state.timer.phase === "idle") state.timer.phase = "work";
+    const remaining = state.timer.remainingMs != null ? state.timer.remainingMs : phaseDurationMs(state.timer.phase);
+    state.timer.endTime = Date.now() + remaining;
+    state.timer.running = true;
+    state.timer.remainingMs = null;
+    if (state.timer.phase === "work" && state.settings.checkinEnabled) {
+      nextCheckinAt = Date.now() + state.settings.checkinIntervalMin * 60000;
+    }
+    saveState();
+    render();
+    acquireWakeLock();
+    addLog(state.timer.phase === "work" ? "Sessione di focus avviata" : "Pausa avviata");
+  }
+
+  function pauseTimer() {
+    if (!state.timer.running) return;
+    state.timer.remainingMs = Math.max(0, state.timer.endTime - Date.now());
+    state.timer.running = false;
+    state.timer.endTime = null;
+    nextCheckinAt = null;
+    saveState();
+    updateButtons();
+    releaseWakeLock();
+  }
+
+  function resetTimer() {
+    state.timer = { phase: "idle", running: false, endTime: null, remainingMs: null, cycleCount: state.timer.cycleCount };
+    nextCheckinAt = null;
+    saveState();
+    updateButtons();
+    render();
+    releaseWakeLock();
+  }
+
+  function skipPhase() {
+    finishPhase(true);
+  }
+
+  function finishPhase(skipped) {
+    const wasWork = state.timer.phase === "work";
+    if (wasWork && !skipped) {
+      state.stats.pomodori += 1;
+      state.stats.minutiFocus += state.settings.workMin;
+      addLog(`Pomodoro completato (${state.settings.workMin} min)`);
+      chime("session-end");
+      notify("Focus Assistant", "Sessione completata! Tempo di pausa.");
+      state.timer.cycleCount += 1;
+    } else if (wasWork && skipped) {
+      addLog("Sessione di focus saltata");
+    } else if (!wasWork) {
+      addLog(skipped ? "Pausa saltata" : "Pausa terminata");
+      if (!skipped) { chime("session-end"); notify("Focus Assistant", "Pausa finita, si torna al lavoro?"); }
+    }
+
+    let nextPhase;
+    if (wasWork) {
+      nextPhase = (!skipped && state.timer.cycleCount % state.settings.cyclesBeforeLongBreak === 0) ? "long_break" : "short_break";
+    } else {
+      nextPhase = "work";
+    }
+    state.timer = { phase: nextPhase, running: false, endTime: null, remainingMs: null, cycleCount: state.timer.cycleCount };
+    nextCheckinAt = null;
+    saveState();
+    render();
+    releaseWakeLock();
+  }
+
+  function updateButtons() {
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    if (state.timer.running) {
+      startBtn.style.display = "none";
+      pauseBtn.style.display = "inline-block";
+    } else {
+      startBtn.style.display = "inline-block";
+      pauseBtn.style.display = "none";
+      startBtn.textContent = state.timer.remainingMs != null ? "▶ Riprendi" : "▶ Avvia";
+    }
+  }
+
+  function tick() {
+    if (state.timer.running) {
+      const remaining = state.timer.endTime - Date.now();
+      if (remaining <= 0) {
+        finishPhase(false);
+      } else {
+        renderTimeOnly(remaining);
+        if (state.timer.phase === "work" && state.settings.checkinEnabled && nextCheckinAt && Date.now() >= nextCheckinAt) {
+          triggerCheckin();
+        }
+      }
+    }
+    checkReminders();
+    checkPeriodics();
+  }
+
+  function renderTimeOnly(remainingMs) {
+    const totalSec = Math.max(0, Math.ceil(remainingMs / 1000));
+    const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
+    const ss = String(totalSec % 60).padStart(2, "0");
+    document.getElementById("timeDisplay").textContent = `${mm}:${ss}`;
+    const duration = phaseDurationMs(state.timer.phase);
+    const frac = duration > 0 ? Math.max(0, Math.min(1, remainingMs / duration)) : 0;
+    ringEl.style.strokeDashoffset = `${RING_CIRC * (1 - frac)}`;
+  }
+
+  function render() {
+    const phase = state.timer.phase;
+    document.getElementById("phaseDisplay").textContent = phaseLabels[phase];
+    ringEl.classList.toggle("break", phase === "short_break" || phase === "long_break");
+    const remaining = state.timer.running ? state.timer.endTime - Date.now()
+      : (state.timer.remainingMs != null ? state.timer.remainingMs : phaseDurationMs(phase === "idle" ? "work" : phase));
+    renderTimeOnly(remaining);
+    updateButtons();
+    updateCurrentTaskDisplay();
+    renderStats();
+  }
+
+  function renderStats() {
+    document.getElementById("statPomodori").textContent = state.stats.pomodori;
+    document.getElementById("statMinuti").textContent = state.stats.minutiFocus;
+    document.getElementById("statDistrazioni").textContent = state.stats.distrazioni;
+  }
+
+  // ---------- Check-in ----------
+  function triggerCheckin() {
+    nextCheckinAt = Date.now() + state.settings.checkinIntervalMin * 60000;
+    chime("checkin");
+    notify("Focus Assistant", "Stai ancora lavorando?");
+    const idx = state.activeTaskIndex;
+    document.getElementById("checkinTaskText").textContent = (idx !== null && state.tasks[idx])
+      ? `Sei ancora concentrato su: "${state.tasks[idx]}"?`
+      : "Come sta andando il focus?";
+    document.getElementById("checkinModal").classList.add("show");
+    document.getElementById("checkinYesBtn").focus();
+  }
+  document.getElementById("checkinYesBtn").addEventListener("click", () => {
+    document.getElementById("checkinModal").classList.remove("show");
+    addLog("Check-in: sì, in focus ✅");
+  });
+  document.getElementById("checkinNoBtn").addEventListener("click", () => {
+    document.getElementById("checkinModal").classList.remove("show");
+    state.stats.distrazioni += 1;
+    saveState();
+    addLog("Check-in: distratto/a ⚠️");
+    renderStats();
+  });
+
+  document.getElementById("logDistractionBtn").addEventListener("click", () => {
+    state.stats.distrazioni += 1;
+    saveState();
+    addLog("Distrazione loggata ✋");
+    renderStats();
+  });
+
+  document.getElementById("startBtn").addEventListener("click", startTimer);
+  document.getElementById("pauseBtn").addEventListener("click", pauseTimer);
+  document.getElementById("resetBtn").addEventListener("click", resetTimer);
+  document.getElementById("skipBtn").addEventListener("click", skipPhase);
+
+  // ---------- Init ----------
+  function init() {
+    renderTasks();
+    renderReminders();
+    renderPeriodics();
+    renderDayBadge();
+    renderSettings();
+    bindSettings();
+    renderLog();
+    render();
+    setInterval(tick, 1000);
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js").catch(() => { /* ok anche senza SW: l'app resta usabile */ });
+    }
+    // quando la scheda torna visibile il browser può aver messo in pausa i timer (schermo
+    // bloccato, app in background): ricontrolliamo subito invece di aspettare il prossimo tick,
+    // e riproviamo a riprendere il wake lock se il sistema l'aveva rilasciato automaticamente
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        tick();
+        renderDayBadge();
+        if (state.timer.running) acquireWakeLock();
+      }
+    });
+    window.addEventListener("focus", tick);
+  }
+  init();
+})();
+</script>
+</body>
+</html>
