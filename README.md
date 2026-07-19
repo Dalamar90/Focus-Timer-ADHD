@@ -66,6 +66,10 @@ anche ad app chiusa.
   flow, senza bisogno di aprire il check-in.
 - **Statistiche del giorno**: pomodori completati, minuti di focus, distrazioni
   loggate. Si azzerano automaticamente il giorno dopo.
+- **Storico settimanale**: grafico a barre degli ultimi 7 giorni con minuti di
+  focus per giorno (oggi evidenziato), numero di distrazioni e totali della
+  settimana. A fine giornata le statistiche vengono archiviate automaticamente
+  (storico conservato fino a 60 giorni).
 
 Tutto lo stato (impostazioni, task, promemoria, statistiche) è salvato nel
 `localStorage` del browser: resta sul tuo dispositivo, nessun dato lascia la pagina.
@@ -79,7 +83,6 @@ Tutto lo stato (impostazioni, task, promemoria, statistiche) è salvato nel
 
 ## Idee per il futuro
 
-- Storico multi-giorno (grafico settimanale di focus/distrazioni)
 - Suoni ambientali / rumore bianco durante le sessioni di focus
 - Modalità "check-in casuale" invece che a intervallo fisso
 - Notifiche push reali anche ad app completamente chiusa (richiede un piccolo
