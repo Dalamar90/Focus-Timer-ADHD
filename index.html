@@ -52,7 +52,7 @@
   .wrap {
     max-width: 720px;
     margin: 0 auto;
-    padding: 28px 16px 80px;
+    padding: 28px 16px calc(96px + env(safe-area-inset-bottom));
   }
   h1 {
     font-size: 1.6rem;
@@ -315,6 +315,52 @@
   .periodic-row .workdays-label { display: flex; align-items: center; gap: 5px; font-size: 0.82rem; color: var(--text-dim); white-space: nowrap; }
   .reminder-row input[type=checkbox], .periodic-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
   .settings-grid input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); justify-self: end; }
+
+  /* ---------- Viste + barra di navigazione ---------- */
+  .view { display: none; }
+  .view.active { display: block; animation: viewIn 0.2s ease; }
+  @keyframes viewIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-sticky);
+    display: flex; gap: 4px;
+    background: rgba(20, 23, 33, 0.92);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  }
+  .tab {
+    flex: 1; background: transparent; border: none; border-radius: 14px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 7px 4px; min-height: 54px; color: var(--text-dim); font-weight: 650;
+  }
+  .tab-ico { font-size: 1.3rem; line-height: 1; opacity: 0.7; transition: transform 0.15s ease, opacity 0.15s ease; }
+  .tab-lbl { font-size: 0.72rem; letter-spacing: 0.01em; }
+  .tab.active { color: var(--text); }
+  .tab.active .tab-ico { opacity: 1; transform: translateY(-1px) scale(1.08); }
+  @media (hover: hover) { .tab:not(.active):hover { background: var(--panel-2); } }
+
+  /* ---------- Durata rapida del focus ---------- */
+  .quick-dur { margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+  .quick-dur-label {
+    font-size: 0.76rem; font-weight: 650; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 11px;
+  }
+  .dur-chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .dur-chip {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid transparent; border-radius: 12px;
+    padding: 8px 15px; min-height: 44px;
+    display: inline-flex; align-items: baseline; gap: 3px;
+    font-weight: 700; font-size: 1.05rem; font-variant-numeric: tabular-nums;
+  }
+  .dur-chip span { font-size: 0.66rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .dur-chip.active { background: var(--accent); color: #0b1020; box-shadow: 0 4px 16px -6px var(--accent-glow); }
+  .dur-chip.active span { color: #0b1020; opacity: 0.72; }
+  @media (hover: hover) { .dur-chip:not(.active):hover { background: var(--panel-hover); } }
+  .dur-custom { display: flex; align-items: center; gap: 8px; justify-content: center; margin-top: 12px; }
+  .dur-custom input { width: 84px; text-align: center; }
+  .dur-custom-unit { font-size: 0.85rem; color: var(--text-dim); }
 </style>
 </head>
 <body>
@@ -332,83 +378,106 @@
     <button class="btn-ghost btn-sm" id="dayOverrideBtn">Cambia</button>
   </div>
 
-  <!-- Timer -->
-  <div class="card timer-card">
-    <div class="ring-box">
-      <svg width="220" height="220" viewBox="0 0 220 220">
-        <circle class="ring-bg" cx="110" cy="110" r="98"></circle>
-        <circle id="ringProgress" class="ring-progress" cx="110" cy="110" r="98"></circle>
-      </svg>
-      <div class="ring-label">
-        <div class="ring-time" id="timeDisplay" aria-hidden="true">25:00</div>
-        <div class="ring-phase" id="phaseDisplay" aria-live="polite">Pronto</div>
+  <!-- ============ VISTA FOCUS ============ -->
+  <div id="view-focus" class="view active" role="tabpanel" aria-label="Focus">
+    <!-- Timer -->
+    <div class="card timer-card">
+      <div class="ring-box">
+        <svg width="220" height="220" viewBox="0 0 220 220">
+          <circle class="ring-bg" cx="110" cy="110" r="98"></circle>
+          <circle id="ringProgress" class="ring-progress" cx="110" cy="110" r="98"></circle>
+        </svg>
+        <div class="ring-label">
+          <div class="ring-time" id="timeDisplay" aria-hidden="true">25:00</div>
+          <div class="ring-phase" id="phaseDisplay" aria-live="polite">Pronto</div>
+        </div>
+      </div>
+      <div class="current-task" id="currentTaskDisplay"></div>
+      <div class="btn-row btn-row--primary">
+        <button class="btn-primary" id="startBtn">▶ Avvia</button>
+        <button class="btn-secondary" id="pauseBtn" style="display:none;">⏸ Pausa</button>
+      </div>
+      <div class="btn-row btn-row--secondary">
+        <button class="btn-ghost btn-sm" id="skipBtn">⏭ Salta</button>
+        <button class="btn-ghost btn-sm" id="resetBtn">↺ Reset</button>
+      </div>
+
+      <!-- Durata rapida del focus, subito sotto il timer -->
+      <div class="quick-dur">
+        <div class="quick-dur-label" id="quickDurLabel">Durata del focus</div>
+        <div class="dur-chips" role="group" aria-labelledby="quickDurLabel">
+          <button type="button" class="dur-chip" data-min="15" aria-pressed="false">15<span>min</span></button>
+          <button type="button" class="dur-chip" data-min="25" aria-pressed="false">25<span>min</span></button>
+          <button type="button" class="dur-chip" data-min="45" aria-pressed="false">45<span>min</span></button>
+          <button type="button" class="dur-chip" data-min="90" aria-pressed="false">90<span>min</span></button>
+        </div>
+        <div class="dur-custom">
+          <input type="number" id="customDurInput" min="5" max="90" step="1" inputmode="numeric" aria-label="Durata personalizzata del focus in minuti">
+          <span class="dur-custom-unit">min</span>
+          <button type="button" class="btn-secondary btn-sm" id="applyDurBtn">Applica</button>
+        </div>
       </div>
     </div>
-    <div class="current-task" id="currentTaskDisplay"></div>
-    <div class="btn-row btn-row--primary">
-      <button class="btn-primary" id="startBtn">▶ Avvia</button>
-      <button class="btn-secondary" id="pauseBtn" style="display:none;">⏸ Pausa</button>
-    </div>
-    <div class="btn-row btn-row--secondary">
-      <button class="btn-ghost btn-sm" id="skipBtn">⏭ Salta</button>
-      <button class="btn-ghost btn-sm" id="resetBtn">↺ Reset</button>
-    </div>
-  </div>
 
-  <!-- Tasks -->
-  <div class="card">
-    <h2>Priorità di oggi (max 3)</h2>
-    <div class="task-list" id="taskList"></div>
-  </div>
-
-  <!-- Stats -->
-  <div class="card">
-    <h2>Oggi</h2>
-    <div class="stats-grid">
-      <div class="stat"><div class="stat-value" id="statPomodori">0</div><div class="stat-label">Pomodori completati</div></div>
-      <div class="stat"><div class="stat-value" id="statMinuti">0</div><div class="stat-label">Minuti di focus</div></div>
-      <div class="stat"><div class="stat-value" id="statDistrazioni">0</div><div class="stat-label">Distrazioni loggate</div></div>
+    <!-- Tasks -->
+    <div class="card">
+      <h2>Priorità di oggi (max 3)</h2>
+      <div class="task-list" id="taskList"></div>
     </div>
-    <div style="margin-top:14px; text-align:center;">
-      <button class="btn-bad btn-sm" id="logDistractionBtn">✋ Mi sono distratto/a</button>
+
+    <!-- Stats -->
+    <div class="card">
+      <h2>Oggi</h2>
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-value" id="statPomodori">0</div><div class="stat-label">Pomodori completati</div></div>
+        <div class="stat"><div class="stat-value" id="statMinuti">0</div><div class="stat-label">Minuti di focus</div></div>
+        <div class="stat"><div class="stat-value" id="statDistrazioni">0</div><div class="stat-label">Distrazioni loggate</div></div>
+      </div>
+      <div style="margin-top:14px; text-align:center;">
+        <button class="btn-bad btn-sm" id="logDistractionBtn">✋ Mi sono distratto/a</button>
+      </div>
     </div>
   </div>
 
-  <!-- Weekly history -->
-  <div class="card">
-    <h2>Ultimi 7 giorni</h2>
-    <div class="history-chart" id="historyChart" role="img" aria-label="Grafico dei minuti di focus degli ultimi 7 giorni"></div>
-    <div class="history-summary" id="historySummary"></div>
-  </div>
+  <!-- ============ VISTA PROMEMORIA ============ -->
+  <div id="view-reminders" class="view" role="tabpanel" aria-label="Promemoria" hidden>
+    <!-- Reminders -->
+    <div class="card">
+      <h2>Promemoria fissi</h2>
+      <div id="reminderList"></div>
+      <div class="btn-row" style="justify-content:flex-start; margin-top:6px;">
+        <button class="btn-secondary btn-sm" id="addReminderBtn">+ Aggiungi promemoria</button>
+        <button class="btn-secondary btn-sm" id="exportIcsBtn">📆 Esporta nel calendario (.ics)</button>
+      </div>
+    </div>
 
-  <!-- Log -->
-  <div class="card card--config">
-    <details>
-      <summary>Registro di oggi</summary>
-      <ul class="log-list" id="logList"></ul>
-    </details>
-  </div>
-
-  <!-- Periodic reminders -->
-  <div class="card card--config">
-    <h2>Promemoria periodici</h2>
-    <div id="periodicList"></div>
-  </div>
-
-  <!-- Reminders -->
-  <div class="card card--config">
-    <h2>Promemoria fissi</h2>
-    <div id="reminderList"></div>
-    <div class="btn-row" style="justify-content:flex-start; margin-top:6px;">
-      <button class="btn-secondary btn-sm" id="addReminderBtn">+ Aggiungi promemoria</button>
-      <button class="btn-secondary btn-sm" id="exportIcsBtn">📆 Esporta nel calendario (.ics)</button>
+    <!-- Periodic reminders -->
+    <div class="card">
+      <h2>Promemoria periodici</h2>
+      <div id="periodicList"></div>
     </div>
   </div>
 
-  <!-- Settings -->
-  <div class="card card--config">
-    <details>
-      <summary>Impostazioni timer</summary>
+  <!-- ============ VISTA DATI ============ -->
+  <div id="view-data" class="view" role="tabpanel" aria-label="Dati" hidden>
+    <!-- Weekly history -->
+    <div class="card">
+      <h2>Ultimi 7 giorni</h2>
+      <div class="history-chart" id="historyChart" role="img" aria-label="Grafico dei minuti di focus degli ultimi 7 giorni"></div>
+      <div class="history-summary" id="historySummary"></div>
+    </div>
+
+    <!-- Log -->
+    <div class="card card--config">
+      <details open>
+        <summary>Registro di oggi</summary>
+        <ul class="log-list" id="logList"></ul>
+      </details>
+    </div>
+
+    <!-- Settings -->
+    <div class="card card--config">
+      <h2>Impostazioni timer avanzate</h2>
       <div class="settings-grid">
         <label for="workMin">Durata lavoro (min)</label>
         <input type="number" id="workMin" min="5" max="90" step="1">
@@ -435,9 +504,22 @@
         <input type="checkbox" id="keepScreenOnToggle">
       </div>
       <p style="font-size:0.75rem; color:var(--text-dim); margin: 10px 0 0;">Sullo smartphone, con lo schermo bloccato i timer del browser vengono messi in pausa dal sistema: questa opzione lo previene durante le sessioni di focus (consuma più batteria).</p>
-    </details>
+    </div>
   </div>
 </div>
+
+<!-- Barra di navigazione: sempre a portata di pollice -->
+<nav class="tabbar" role="tablist" aria-label="Sezioni dell'app">
+  <button type="button" class="tab active" data-view="focus" role="tab" aria-selected="true" aria-current="page">
+    <span class="tab-ico" aria-hidden="true">🎯</span><span class="tab-lbl">Focus</span>
+  </button>
+  <button type="button" class="tab" data-view="reminders" role="tab" aria-selected="false">
+    <span class="tab-ico" aria-hidden="true">🔔</span><span class="tab-lbl">Promemoria</span>
+  </button>
+  <button type="button" class="tab" data-view="data" role="tab" aria-selected="false">
+    <span class="tab-ico" aria-hidden="true">📊</span><span class="tab-lbl">Dati</span>
+  </button>
+</nav>
 
 <!-- Check-in modal -->
 <div class="modal-overlay" id="checkinModal" role="alertdialog" aria-modal="true" aria-labelledby="checkinModalTitle" aria-describedby="checkinTaskText">
@@ -965,12 +1047,62 @@
   // Le nuove durate valgono subito a timer fermo; una sessione in corso o in
   // pausa mantiene il suo conto alla rovescia e le applica dalla prossima fase.
   function applyDurationChange() {
+    refreshDurationUI();
     if (!state.timer.running && state.timer.remainingMs == null) {
       render();
     } else {
       toast("Durata salvata: vale dalla prossima sessione.");
     }
   }
+
+  // ---------- Durata rapida del focus (chip + campo con Applica) ----------
+  // Tiene allineati chip, campo rapido e impostazione avanzata: sono la stessa
+  // durata di lavoro (state.settings.workMin), regolabile senza scorrere in fondo.
+  function refreshDurationUI() {
+    const w = state.settings.workMin;
+    document.querySelectorAll(".dur-chip").forEach(chip => {
+      const on = Number(chip.dataset.min) === w;
+      chip.classList.toggle("active", on);
+      chip.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    const custom = document.getElementById("customDurInput");
+    if (custom && document.activeElement !== custom) custom.value = w;
+    const adv = document.getElementById("workMin");
+    if (adv && document.activeElement !== adv) adv.value = w;
+  }
+  function setWorkDuration(value) {
+    state.settings.workMin = clampInt(value, 5, 90, state.settings.workMin);
+    saveState();
+    applyDurationChange();
+  }
+  document.querySelectorAll(".dur-chip").forEach(chip => {
+    chip.addEventListener("click", () => setWorkDuration(chip.dataset.min));
+  });
+  document.getElementById("applyDurBtn").addEventListener("click", () => {
+    setWorkDuration(document.getElementById("customDurInput").value);
+  });
+  document.getElementById("customDurInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); setWorkDuration(e.target.value); }
+  });
+
+  // ---------- Navigazione tra le viste ----------
+  function showView(name) {
+    document.querySelectorAll(".view").forEach(v => {
+      const on = v.id === "view-" + name;
+      v.classList.toggle("active", on);
+      v.hidden = !on;
+    });
+    document.querySelectorAll(".tab").forEach(t => {
+      const on = t.dataset.view === name;
+      t.classList.toggle("active", on);
+      t.setAttribute("aria-selected", on ? "true" : "false");
+      if (on) t.setAttribute("aria-current", "page"); else t.removeAttribute("aria-current");
+    });
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => showView(tab.dataset.view));
+  });
   function clampInt(v, min, max, fallback) {
     const n = parseInt(v, 10);
     if (isNaN(n)) return fallback;
@@ -1243,6 +1375,8 @@
     renderDayBadge();
     renderSettings();
     bindSettings();
+    refreshDurationUI();
+    showView("focus");
     renderLog();
     render();
     setInterval(tick, 1000);

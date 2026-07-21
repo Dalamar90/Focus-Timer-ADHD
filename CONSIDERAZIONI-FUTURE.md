@@ -5,6 +5,18 @@ Tema comune: la pagina unica è diventata troppo lunga e mette in fondo cose
 secondarie, mentre ciò che serve durante l'uso (il timer e le sue impostazioni)
 deve stare a portata di mano.
 
+## ✅ Fatto (2026-07-21)
+Ristrutturazione dell'architettura dell'informazione in 3 viste JS con barra di
+navigazione fissa in basso (Focus / Promemoria / Dati), sempre dentro l'unico
+`index.html`. Copre i punti 1–4 qui sotto:
+- **Focus**: timer + durata rapida (chip 15/25/45/90 + campo con bottone
+  «Applica») + priorità del giorno + stats di oggi (punti 3 e 4).
+- **Promemoria**: promemoria fissi (+ export .ics) e periodici, fuori dal flusso
+  del focus (punto 1).
+- **Dati**: storico «Ultimi 7 giorni», registro di oggi, impostazioni timer
+  avanzate (punto 2).
+I punti seguenti restano come traccia storica del ragionamento.
+
 ## 1. Promemoria periodici → pagina dedicata
 Nella pagina principale, in fondo, sono di ingombro e poco utili lì.
 Spostarli in una **pagina/vista apposita**, raggiungibile ma fuori dal flusso
