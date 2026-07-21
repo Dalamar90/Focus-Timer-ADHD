@@ -53,8 +53,10 @@ storico, export .ics). Trucco per testare: seminare
 
 ## Roadmap migliorie (discussa con l'utente, in ordine consigliato)
 Piccole ad alto impatto ADHD:
-1. **Parcheggio pensieri**: campo sempre visibile per annotare pensieri intrusivi
-   senza uscire dal focus; ritrovabili a fine giornata nel registro
+1. ✅ **Parcheggio pensieri** (fatto 2026-07-21): card nella vista Focus con campo
+   sempre visibile per annotare pensieri intrusivi senza uscire dal focus; lista
+   con timbro orario, si tolgono col ✓, persistono oltre il rollover giornaliero,
+   e finiscono anche nel registro di oggi (`state.parkedThoughts`)
 2. **Durate rapide**: chip 15/25/45/90 min accanto al timer (energia variabile,
    modalità hyperfocus da 90')
 3. **Check-in a intervallo casuale** (es. 8–15 min) invece che fisso, contro

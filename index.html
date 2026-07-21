@@ -361,6 +361,26 @@
   .dur-custom { display: flex; align-items: center; gap: 8px; justify-content: center; margin-top: 12px; }
   .dur-custom input { width: 84px; text-align: center; }
   .dur-custom-unit { font-size: 0.85rem; color: var(--text-dim); }
+
+  /* ---------- Parcheggio pensieri ---------- */
+  .park-hint { font-size: 0.85rem; color: var(--text-dim); margin: -6px 0 12px; text-wrap: balance; }
+  .park-input-row { display: flex; gap: 8px; align-items: center; }
+  .park-input-row input[type=text] { flex: 1; padding: 12px 13px; }
+  .park-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .park-list:empty { margin: 0; }
+  .park-list li {
+    display: flex; align-items: flex-start; gap: 8px;
+    background: var(--panel-2); border-radius: 12px; padding: 10px 12px;
+    font-size: 0.92rem;
+  }
+  .park-list .park-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .park-list .park-time { color: var(--text-dim); font-size: 0.72rem; font-variant-numeric: tabular-nums; margin-top: 3px; white-space: nowrap; }
+  .park-list .park-done {
+    flex: none; background: transparent; border: 1px solid var(--panel-hover);
+    color: var(--good); min-height: 34px; min-width: 40px; padding: 4px 8px;
+    border-radius: 10px; font-size: 0.95rem;
+  }
+  @media (hover: hover) { .park-list .park-done:hover { background: var(--panel-hover); } }
 </style>
 </head>
 <body>
@@ -423,6 +443,17 @@
     <div class="card">
       <h2>Priorità di oggi (max 3)</h2>
       <div class="task-list" id="taskList"></div>
+    </div>
+
+    <!-- Parcheggio pensieri -->
+    <div class="card">
+      <h2>Parcheggio pensieri</h2>
+      <p class="park-hint">Ti è venuto in mente qualcosa? Scrivilo qui e torna al focus — lo ritrovi dopo, con calma.</p>
+      <div class="park-input-row">
+        <input type="text" id="parkInput" placeholder="Un pensiero che ti distrae…" aria-label="Pensiero da parcheggiare" autocomplete="off">
+        <button class="btn-secondary btn-sm" id="parkBtn">Parcheggia</button>
+      </div>
+      <ul class="park-list" id="parkList"></ul>
     </div>
 
     <!-- Stats -->
@@ -626,6 +657,7 @@
       dayOverrides: {},
       tasks: ["", "", ""],
       activeTaskIndex: null,
+      parkedThoughts: [],
       timer: {
         phase: "idle", // idle | work | short_break | long_break
         running: false,
@@ -652,6 +684,7 @@
     if (!s.periodics) s.periodics = defaultPeriodics();
     if (!s.dayOverrides) s.dayOverrides = {};
     if (!s.history) s.history = [];
+    if (!s.parkedThoughts) s.parkedThoughts = [];
     s.reminders = (s.reminders || []).map(r => ({ workdaysOnly: false, ...r }));
     // reset daily stats/log on a new day, keep settings/tasks/reminders
     if (s.day !== todayStr()) {
@@ -791,6 +824,51 @@
     if (idx !== null && state.tasks[idx]) el.textContent = `Su cui stai lavorando: ${state.tasks[idx]}`;
     else el.textContent = "";
   }
+
+  // ---------- Parcheggio pensieri ----------
+  // I pensieri parcheggiati NON si azzerano a fine giornata (a differenza di
+  // log/stats): sono cose da gestire, si tolgono solo a mano col segno di spunta.
+  function renderParked() {
+    const ul = document.getElementById("parkList");
+    ul.innerHTML = "";
+    for (const t of state.parkedThoughts) {
+      const li = document.createElement("li");
+      const text = document.createElement("div");
+      text.className = "park-text";
+      text.textContent = t.text;
+      const time = document.createElement("span");
+      time.className = "park-time";
+      time.textContent = t.time;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "park-done";
+      btn.textContent = "✓";
+      btn.setAttribute("aria-label", `Segna come gestito e rimuovi: ${t.text}`);
+      btn.addEventListener("click", () => {
+        state.parkedThoughts = state.parkedThoughts.filter(x => x.id !== t.id);
+        saveState();
+        renderParked();
+      });
+      li.append(text, time, btn);
+      ul.appendChild(li);
+    }
+  }
+  function parkThought() {
+    const input = document.getElementById("parkInput");
+    const text = input.value.trim();
+    if (!text) return;
+    const time = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    state.parkedThoughts.unshift({ id: "th-" + Date.now(), text, time });
+    saveState();
+    addLog(`Pensiero parcheggiato: ${text}`);
+    input.value = "";
+    renderParked();
+    input.focus();
+  }
+  document.getElementById("parkBtn").addEventListener("click", parkThought);
+  document.getElementById("parkInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); parkThought(); }
+  });
 
   // ---------- Reminders ----------
   function renderReminders() {
@@ -1370,6 +1448,7 @@
   // ---------- Init ----------
   function init() {
     renderTasks();
+    renderParked();
     renderReminders();
     renderPeriodics();
     renderDayBadge();

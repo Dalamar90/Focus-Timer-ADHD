@@ -1,4 +1,4 @@
-const CACHE_NAME = "focus-assistant-v6";
+const CACHE_NAME = "focus-assistant-v7";
 const APP_SHELL = [
   "./",
   "./index.html",
